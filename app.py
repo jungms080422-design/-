@@ -600,21 +600,21 @@ elif st.session_state.stage < len(SCENARIOS):
         """, unsafe_allow_html=True)
 
 # -------------------- 엔딩 화면 --------------------
-else:
-    st.markdown("---")
-    real_stats = load_statistics()
-    ending_type, ending_title, ending_color = analyze_result(st.session_state.stats, real_stats)
+    else:
+        st.markdown("---")
+        real_stats = load_statistics()
+        ending_type, ending_title, ending_color = analyze_result(st.session_state.stats, real_stats)
 
-    st.markdown(f"<h2 style='text-align:center; color:{ending_color};'>{ending_title}</h2>", unsafe_allow_html=True)
-    st.markdown(get_ending_message(ending_type, st.session_state.stats, real_stats), unsafe_allow_html=True)
+        st.markdown(f"<h2 style='text-align:center; color:{ending_color};'>{ending_title}</h2>", unsafe_allow_html=True)
+        st.markdown(get_ending_message(ending_type, st.session_state.stats, real_stats), unsafe_allow_html=True)
 
     # 최종 통계 요약
-    st.markdown("### 📊 당신의 최종 상태")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("정신건강", f"{st.session_state.stats['mental']} 점")
-    col2.metric("신체건강", f"{st.session_state.stats['physical']} 점")
-    col3.metric("위험도", f"{st.session_state.stats['risk']} 점")
-    col4.metric("행복도", f"{st.session_state.stats['happiness']} 점")
+        st.markdown("### 📊 당신의 최종 상태")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("정신건강", f"{st.session_state.stats['mental']} 점")
+        col2.metric("신체건강", f"{st.session_state.stats['physical']} 점")
+        col3.metric("위험도", f"{st.session_state.stats['risk']} 점")
+        col4.metric("행복도", f"{st.session_state.stats['happiness']} 점")
 
     # 다시 시작 버튼
     if st.button("🔁 다시 시작하기", use_container_width=True):
