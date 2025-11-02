@@ -289,45 +289,88 @@ SCENARIOS = [
     }
 ]
 
-# -------------------- 데이터 로드 함수 --------------------
+# -------------------- 데이터 로드 함수 (기존 함수 교체) --------------------
 @st.cache_data
 def load_statistics():
     """CSV 파일들을 로드하고 통계 데이터를 반환"""
+    stats = {}
+    
+    # 우울증 데이터
     try:
-        stats = {}
-        
-        # 우울증 데이터
-        try:
-            df_dep = pd.read_csv("청소년_우울증.csv", encoding='utf-8-sig')
-            stats['depression'] = df_dep["우울 경험률"].mean() if "우울 경험률" in df_dep.columns else 25.0
-        except:
-            stats['depression'] = 25.2  # 2023년 기준 청소년 우울감 경험률
-        
-        # 자살시도율 데이터
-        try:
-            df_su = pd.read_csv("청소년_자살시도율.csv", encoding='utf-8-sig')
-            stats['suicide'] = df_su["자살시도율"].mean() if "자살시도율" in df_su.columns else 2.5
-        except:
-            stats['suicide'] = 2.7  # 2023년 기준 청소년 자살 시도율
-        
-        # 사회문제 노출 데이터
-        try:
-            df_soc = pd.read_csv("사회문제_위험_노출_정도_20251102160905.csv", encoding='utf-8-sig')
-            stats['risk_exposure'] = df_soc["위험노출정도"].mean() if "위험노출정도" in df_soc.columns else 15.0
-        except:
-            stats['risk_exposure'] = 15.8  # 기본값
-        
-        # 흡연율 데이터
-        stats['smoking'] = 5.9  # 2023년 청소년 흡연율
-        
-        return stats
-    except Exception as e:
-        return {
-            'depression': 25.2,
-            'suicide': 2.7,
-            'risk_exposure': 15.8,
-            'smoking': 5.9
-        }
+        df_dep = pd.read_csv("청소년_우울증.csv", encoding='utf-8-sig')
+        if "우울 경험률" in df_dep.columns or "우울경험률" in df_dep.columns:
+            col_name = "우울 경험률" if "우울 경험률" in df_dep.columns else "우울경험률"
+            stats['depression'] = df_dep[col_name].mean()
+            
+            # 성별 데이터가 있으면 성별별로 계산
+            if "성별" in df_dep.columns:
+                stats['depression_male'] = df_dep[df_dep['성별'].str.contains('남', na=False)][col_name].mean()
+                stats['depression_female'] = df_dep[df_dep['성별'].str.contains('여', na=False)][col_name].mean()
+            else:
+                stats['depression_male'] = stats['depression']
+                stats['depression_female'] = stats['depression']
+        else:
+            stats['depression'] = 25.2
+            stats['depression_male'] = 20.5
+            stats['depression_female'] = 30.1
+    except:
+        stats['depression'] = 25.2
+        stats['depression_male'] = 20.5
+        stats['depression_female'] = 30.1
+    
+    # 자살시도율 데이터
+    try:
+        df_su = pd.read_csv("청소년_자살시도율.csv", encoding='utf-8-sig')
+        if "자살시도율" in df_su.columns:
+            stats['suicide'] = df_su["자살시도율"].mean()
+            
+            if "성별" in df_su.columns:
+                stats['suicide_male'] = df_su[df_su['성별'].str.contains('남', na=False)]["자살시도율"].mean()
+                stats['suicide_female'] = df_su[df_su['성별'].str.contains('여', na=False)]["자살시도율"].mean()
+            else:
+                stats['suicide_male'] = stats['suicide']
+                stats['suicide_female'] = stats['suicide']
+        else:
+            stats['suicide'] = 2.7
+            stats['suicide_male'] = 2.3
+            stats['suicide_female'] = 3.1
+    except:
+        stats['suicide'] = 2.7
+        stats['suicide_male'] = 2.3
+        stats['suicide_female'] = 3.1
+    
+    # 흡연율 데이터
+    try:
+        df_smoke = pd.read_csv("청소년_흡연율.csv", encoding='utf-8-sig')
+        if "흡연율" in df_smoke.columns:
+            stats['smoking'] = df_smoke["흡연율"].mean()
+            
+            if "성별" in df_smoke.columns:
+                stats['smoking_male'] = df_smoke[df_smoke['성별'].str.contains('남', na=False)]["흡연율"].mean()
+                stats['smoking_female'] = df_smoke[df_smoke['성별'].str.contains('여', na=False)]["흡연율"].mean()
+            else:
+                stats['smoking_male'] = stats['smoking']
+                stats['smoking_female'] = stats['smoking']
+        else:
+            stats['smoking'] = 5.9
+            stats['smoking_male'] = 7.8
+            stats['smoking_female'] = 3.8
+    except:
+        stats['smoking'] = 5.9
+        stats['smoking_male'] = 7.8
+        stats['smoking_female'] = 3.8
+    
+    # 사회문제 노출 데이터
+    try:
+        df_soc = pd.read_csv("사회문제_위험_노출_정도_20251102160905.csv", encoding='utf-8-sig')
+        if "위험노출정도" in df_soc.columns:
+            stats['risk_exposure'] = df_soc["위험노출정도"].mean()
+        else:
+            stats['risk_exposure'] = 15.8
+    except:
+        stats['risk_exposure'] = 15.8
+    
+    return stats
 
 # -------------------- 게임 결과 분석 --------------------
 def analyze_result(stats, real_stats):
@@ -628,16 +671,22 @@ else:
     
     st.markdown("---")
 
-    # -------------------- 성별별 통계 표시 (get_ending_message 함수 아래에 추가) --------------------
+# -------------------- 성별별 통계 표시 --------------------
 def show_gender_statistics(stats, user_gender):
     """사용자 성별에 맞는 통계 표시"""
     st.markdown("### 📊 나와 같은 성별 청소년 통계")
     
     gender_text = "남학생" if user_gender == "male" else "여학생"
     
-    depression_rate = stats.get('depression', 25.2)
-    suicide_rate = stats.get('suicide', 2.7)
-    smoking_rate = stats.get('smoking', 5.9)
+    # 성별별 데이터 가져오기 (없으면 전체 평균 사용)
+    if user_gender == "male":
+        depression_rate = stats.get('depression_male', stats.get('depression', 25.2))
+        suicide_rate = stats.get('suicide_male', stats.get('suicide', 2.7))
+        smoking_rate = stats.get('smoking_male', stats.get('smoking', 5.9))
+    else:
+        depression_rate = stats.get('depression_female', stats.get('depression', 25.2))
+        suicide_rate = stats.get('suicide_female', stats.get('suicide', 2.7))
+        smoking_rate = stats.get('smoking_female', stats.get('smoking', 5.9))
     
     col1, col2 = st.columns(2)
     
@@ -667,9 +716,7 @@ def show_gender_statistics(stats, user_gender):
     <p style='font-size:32px; font-weight:bold; color:#FD7E14; margin:10px 0;'>{smoking_rate:.1f}%</p>
     <p>흡연은 중독성이 강하고 건강을 크게 해쳐요.</p>
     </div>
-    """, unsafe_allow_html=True)
-
-# -------------------- 상담센터 데이터 로드 --------------------
+    """, unsafe_allow_html=True)# -------------------- 상담센터 데이터 로드 --------------------
 @st.cache_data
 def load_counseling_centers():
     """청소년 상담센터 위치 데이터를 로드"""
