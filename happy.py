@@ -44,7 +44,7 @@ if st.session_state.stage == 0:
     if st.button("게임 시작"):
         st.session_state.stage = 1
         st.session_state.gender = gender
-        st.experimental_rerun()
+        st.rerun()
 
 # ---- 시뮬레이션 단계 ----
 elif st.session_state.stage == 1:
@@ -65,7 +65,7 @@ elif st.session_state.stage == 1:
             st.session_state.mental -= 5
 
         st.session_state.stage = 2
-        st.experimental_rerun()
+        st.rerun()
 
 elif st.session_state.stage == 2:
     st.write("📱 SNS에서 누군가 나를 험담합니다. 당신은?")
@@ -83,7 +83,7 @@ elif st.session_state.stage == 2:
         else:
             st.session_state.mental += 10
         st.session_state.stage = 3
-        st.experimental_rerun()
+        st.rerun()
 
 elif st.session_state.stage == 3:
     st.write("💊 친구가 ‘기분 좋아지는 약’을 건넸습니다. 당신은?")
@@ -101,7 +101,7 @@ elif st.session_state.stage == 3:
         else:
             st.session_state.mental -= 5
         st.session_state.stage = 4
-        st.experimental_rerun()
+        st.rerun()
 
 # ---- 결과 ----
 elif st.session_state.stage == 4:
@@ -136,4 +136,4 @@ elif st.session_state.stage == 4:
         for key in ["stage", "mental", "physical", "risk"]:
             if key in st.session_state:
                 del st.session_state[key]
-        st.experimental_rerun()
+        st.rerun()
