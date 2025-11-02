@@ -802,42 +802,6 @@ def show_counseling_centers(selected_region=None):
                 })
                 st.map(map_data, zoom=13)
 
-# -------------------- 사회문제별 통계 표시 --------------------
-def show_risk_statistics(stats):
-    """사회문제 유형별 위험 노출 통계"""
-    st.markdown("### 🔍 사회문제 유형별 노출 현황")
-    
-    if stats.get('risk_by_type'):
-        st.markdown("""
-        <div style='background-color:#FFF9E6; padding:15px; border-radius:10px; border-left:4px solid #FFC107; color:#856404;'>
-        청소년들이 실제로 노출되는 다양한 사회문제의 비율입니다.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # 문제 유형별 표시
-        for problem_type, rate in stats['risk_by_type'].items():
-            # 위험도에 따른 색상
-            if rate >= 20:
-                color = "#DC3545"
-                icon = "🔴"
-            elif rate >= 10:
-                color = "#FD7E14"
-                icon = "🟠"
-            else:
-                color = "#28A745"
-                icon = "🟢"
-            
-            st.markdown(f"""
-            <div style='background-color:white; padding:15px; margin-bottom:10px; 
-            border-radius:8px; border-left:4px solid {color}; color:#212529;'>
-            {icon} <b>{problem_type}</b>: 
-            <span style='color:{color}; font-size:20px; font-weight:bold;'>{rate:.1f}%</span>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("세부 통계 데이터가 없습니다.")
     
     # 다시 시작하기 버튼
     col1, col2, col3 = st.columns([1, 2, 1])
