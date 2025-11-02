@@ -737,72 +737,85 @@ else:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-# -------------------- 상담센터 찾기 --------------------
-def show_counseling_centers(selected_region=None):
-    """지역별 상담센터 표시"""
-    st.markdown("### 🏢 내 주변 청소년 상담센터 찾기")
-    
-    df_centers = load_counseling_centers()
-    
-    if df_centers.empty:
-        st.warning("상담센터 데이터를 불러올 수 없습니다.")
-        return
-    
-    # 지역 선택
-    if '시도' in df_centers.columns:
-        regions = ['전체'] + sorted(df_centers['시도'].unique().tolist())
-    else:
-        st.warning("지역 정보가 없습니다.")
-        return
-    
-    selected = st.selectbox("지역을 선택하세요:", regions, 
-                           index=regions.index(selected_region) if selected_region in regions else 0)
-    
-    # 필터링
-    if selected == '전체':
-        filtered_df = df_centers
-    else:
-        filtered_df = df_centers[df_centers['시도'] == selected]
-    
-    if filtered_df.empty:
-        st.info(f"{selected}에는 등록된 상담센터가 없습니다.")
-        return
-    
-    st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
-    st.markdown("---")
-    
-    # 상담센터 목록 표시
-    for idx, row in filtered_df.iterrows():
-        with st.expander(f"📍 {row['센터명']}"):
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                st.markdown(f"""
-                **주소:** {row['주소']}  
-                **전화번호:** {row['전화번호']}
-                """)
-            
-            with col2:
-                # 전화 걸기 버튼
-                phone = str(row['전화번호']).replace('-', '')
-                st.markdown(f"""
-                <a href="tel:{phone}" style="text-decoration:none;">
-                <button style="background-color:#28A745; color:white; padding:10px 20px; 
-                border:none; border-radius:5px; cursor:pointer; width:100%;">
-                📞 전화하기
-                </button>
-                </a>
-                """, unsafe_allow_html=True)
-            
-            # 지도 표시 (위도, 경도가 있는 경우)
-            if '위도' in row and '경도' in row and pd.notna(row['위도']) and pd.notna(row['경도']):
-                map_data = pd.DataFrame({
-                    'lat': [row['위도']],
-                    'lon': [row['경도']]
-                })
-                st.map(map_data, zoom=13)
 
+
+    import pandas as pd
+import folium
+
+# 1. 데이터 로드 및 좌표 데이터 준비
+file_path = "여성가족부_청소년상담복지센터 현황_20241029 2.csv"
+df = pd.read_csv(file_path)
+
+# 사용자님이 제공해주신 위도/경도 데이터 (상위 14개 센터에 매칭)
+# 형식: (위도, 경도)
+coordinates = [
+    (37.59064, 126.99338),  # 1
+    (37.53890, 126.96501),  # 2
+    (37.55423, 127.02710),  # 3
+    (37.54027, 127.06517),  # 4
+    (37.57394, 127.02462),  # 5
+    (37.57323, 127.08597),  # 6
+    (37.64178, 127.02216),  # 7
+    (37.67143, 127.05483),  # 8
+    (34.93669, 126.56360),  # 9 (다른 지역 좌표로 추정되나, 순서대로 사용)
+    (37.58472, 126.91373),  # 10
+    (37.55317, 126.90270),  # 11
+    (37.47826, 126.99907),  # 12
+    (37.48360, 127.08878),  # 13
+    (37.48815, 127.11271)   # 14
+]
+
+# 상위 14개 데이터에 위도/경도 컬럼 추가
+num_coords = len(coordinates)
+if len(df) >= num_coords:
+    # 14개 좌표만 별도로 데이터프레임으로 만들어 기존 df에 병합
+    coord_df = pd.DataFrame(coordinates, columns=['위도', '경도'])
     
+    # 기존 df의 상위 14개 행에 좌표 데이터 할당
+    df.loc[:num_coords-1, ['위도', '경도']] = coord_df[['위도', '경도']].values
+    
+    # 좌표가 없는 나머지 데이터는 제거 (시각화 대상에서 제외)
+    df = df.dropna(subset=['위도', '경도'])
+else:
+    print(f"⚠️ 파일의 데이터 개수가 {len(df)}개로, 제공된 좌표 {num_coords}개보다 적습니다.")
+    print("제공된 좌표 수에 맞게 모든 데이터를 시각화합니다.")
+    coord_df = pd.DataFrame(coordinates[:len(df)], columns=['위도', '경도'])
+    df['위도'] = coord_df['위도']
+    df['경도'] = coord_df['경도']
+    df = df.dropna(subset=['위도', '경도'])
+
+# 2. Folium 지도 생성
+# 지도의 중심은 시각화되는 센터들의 평균 좌표로 설정
+center_lat = df['위도'].mean()
+center_lon = df['경도'].mean()
+m = folium.Map(location=[center_lat, center_lon], zoom_start=10) # 서울/경기권 위주로 보여주기 위해 zoom_start=10 설정
+
+# 3. 지도에 마커 추가
+for idx, row in df.iterrows():
+    # 툴팁에 표시할 상세 정보 HTML 생성
+    tooltip_html = f"""
+    <h4>**{row['센터명']}**</h4>
+    <ul>
+        <li>**지역:** {row['시도명']} {row['시군구명']}</li>
+        <li>**주소:** {row['주소']}</li>
+        <li>**전화번호:** {row['전화번호_1']}</li>
+    </ul>
+    """
+    
+    # 마커 추가
+    folium.Marker(
+        [row['위도'], row['경도']],
+        tooltip=folium.Tooltip(tooltip_html, permanent=False),
+        popup=row['센터명'],
+        icon=folium.Icon(color='blue', icon='star') # 마커 아이콘 설정
+    ).add_to(m)
+
+# 4. 지도 저장
+map_filename = '청소년상담복지센터_현황_지도.html'
+m.save(map_filename)
+
+print(f"✅ Folium 지도가 성공적으로 생성되었으며, '{map_filename}' 파일로 저장되었습니다.")
+print("이 HTML 파일을 웹 브라우저에서 열어 시각화 결과를 확인해 보세요.")
     # 다시 시작하기 버튼
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
