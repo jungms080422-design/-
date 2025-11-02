@@ -737,6 +737,107 @@ else:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
+# -------------------- 상담센터 찾기 --------------------
+def show_counseling_centers(selected_region=None):
+    """지역별 상담센터 표시"""
+    st.markdown("### 🏢 내 주변 청소년 상담센터 찾기")
+    
+    df_centers = load_counseling_centers()
+    
+    if df_centers.empty:
+        st.warning("상담센터 데이터를 불러올 수 없습니다.")
+        return
+    
+    # 지역 선택
+    if '시도' in df_centers.columns:
+        regions = ['전체'] + sorted(df_centers['시도'].unique().tolist())
+    else:
+        st.warning("지역 정보가 없습니다.")
+        return
+    
+    selected = st.selectbox("지역을 선택하세요:", regions, 
+                           index=regions.index(selected_region) if selected_region in regions else 0)
+    
+    # 필터링
+    if selected == '전체':
+        filtered_df = df_centers
+    else:
+        filtered_df = df_centers[df_centers['시도'] == selected]
+    
+    if filtered_df.empty:
+        st.info(f"{selected}에는 등록된 상담센터가 없습니다.")
+        return
+    
+    st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
+    st.markdown("---")
+    
+    # 상담센터 목록 표시
+    for idx, row in filtered_df.iterrows():
+        with st.expander(f"📍 {row['센터명']}"):
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                st.markdown(f"""
+                **주소:** {row['주소']}  
+                **전화번호:** {row['전화번호']}
+                """)
+            
+            with col2:
+                # 전화 걸기 버튼
+                phone = str(row['전화번호']).replace('-', '')
+                st.markdown(f"""
+                <a href="tel:{phone}" style="text-decoration:none;">
+                <button style="background-color:#28A745; color:white; padding:10px 20px; 
+                border:none; border-radius:5px; cursor:pointer; width:100%;">
+                📞 전화하기
+                </button>
+                </a>
+                """, unsafe_allow_html=True)
+            
+            # 지도 표시 (위도, 경도가 있는 경우)
+            if '위도' in row and '경도' in row and pd.notna(row['위도']) and pd.notna(row['경도']):
+                map_data = pd.DataFrame({
+                    'lat': [row['위도']],
+                    'lon': [row['경도']]
+                })
+                st.map(map_data, zoom=13)
+
+# -------------------- 사회문제별 통계 표시 --------------------
+def show_risk_statistics(stats):
+    """사회문제 유형별 위험 노출 통계"""
+    st.markdown("### 🔍 사회문제 유형별 노출 현황")
+    
+    if stats.get('risk_by_type'):
+        st.markdown("""
+        <div style='background-color:#FFF9E6; padding:15px; border-radius:10px; border-left:4px solid #FFC107; color:#856404;'>
+        청소년들이 실제로 노출되는 다양한 사회문제의 비율입니다.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # 문제 유형별 표시
+        for problem_type, rate in stats['risk_by_type'].items():
+            # 위험도에 따른 색상
+            if rate >= 20:
+                color = "#DC3545"
+                icon = "🔴"
+            elif rate >= 10:
+                color = "#FD7E14"
+                icon = "🟠"
+            else:
+                color = "#28A745"
+                icon = "🟢"
+            
+            st.markdown(f"""
+            <div style='background-color:white; padding:15px; margin-bottom:10px; 
+            border-radius:8px; border-left:4px solid {color}; color:#212529;'>
+            {icon} <b>{problem_type}</b>: 
+            <span style='color:{color}; font-size:20px; font-weight:bold;'>{rate:.1f}%</span>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("세부 통계 데이터가 없습니다.")
     
     # 다시 시작하기 버튼
     col1, col2, col3 = st.columns([1, 2, 1])
