@@ -719,77 +719,7 @@ def show_gender_statistics(stats, user_gender):
     """, unsafe_allow_html=True)
 
 # -------------------- 상담센터 데이터 로드 --------------------
-@st.cache_data
-def load_counseling_centers():
-    """청소년 상담센터 위치 데이터를 로드"""
-    try:
-        df_centers = pd.read_csv("여성가족부_청소년상담복지센터 현황_20241029 2.csv", encoding='utf-8-sig')
-        return df_centers
-    except:
-        return pd.DataFrame({
-            '센터명': ['서울시청소년상담복지센터', '부산시청소년상담복지센터', '인천시청소년상담복지센터'],
-            '주소': ['서울시 중구 세종대로 110', '부산시 연제구 중앙대로 1001', '인천시 남동구 정각로 29'],
-            '전화번호_1': ['02-2285-1318', '051-860-2000', '032-427-1318'],
-            '시도명': ['서울특별시', '부산광역시', '인천광역시'],
-            '시군구명': ['중구', '연제구', '남동구']
-        })
 
-# -------------------- 상담센터 찾기 --------------------
-def show_counseling_centers():
-    """지역별 상담센터 표시"""
-    st.markdown("### 🏢 내 주변 청소년 상담센터 찾기")
-    
-    df_centers = load_counseling_centers()
-    
-    if df_centers.empty:
-        st.warning("상담센터 데이터를 불러올 수 없습니다.")
-        return
-    
-    if '시도명' in df_centers.columns:
-        regions = ['전체'] + sorted(df_centers['시도명'].unique().tolist())
-    else:
-        st.warning("지역 정보가 없습니다.")
-        return
-    
-    selected = st.selectbox("📍 지역을 선택하세요:", regions, index=0)
-    
-    if selected == '전체':
-        filtered_df = df_centers.head(20)
-    else:
-        filtered_df = df_centers[df_centers['시도명'] == selected]
-    
-    if filtered_df.empty:
-        st.info(f"{selected}에는 등록된 상담센터가 없습니다.")
-        return
-    
-    st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
-    st.markdown("---")
-    
-    for idx, row in filtered_df.iterrows():
-        with st.expander(f"📍 {row['센터명']}"):
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                address = row.get('주소', '주소 정보 없음')
-                phone = row.get('전화번호_1', '전화번호 없음')
-                region = f"{row.get('시도명', '')} {row.get('시군구명', '')}"
-                
-                st.markdown(f"""
-                **📍 지역:** {region}  
-                **🏠 주소:** {address}  
-                **📞 전화번호:** {phone}
-                """)
-            
-            with col2:
-                phone_clean = str(phone).replace('-', '').replace(' ', '')
-                st.markdown(f"""
-                <a href="tel:{phone_clean}" style="text-decoration:none;">
-                    <button style="background-color:#28A745; color:white; padding:10px 15px; 
-                    border:none; border-radius:5px; cursor:pointer; width:100%; font-weight:bold;">
-                    📞 전화하기
-                    </button>
-                </a>
-                """, unsafe_allow_html=True)
     # 실제 통계 데이터 비교
     st.markdown("### 📈 실제 청소년 통계와 비교")
     
