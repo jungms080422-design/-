@@ -716,7 +716,9 @@ def show_gender_statistics(stats, user_gender):
     <p style='font-size:32px; font-weight:bold; color:#FD7E14; margin:10px 0;'>{smoking_rate:.1f}%</p>
     <p>흡연은 중독성이 강하고 건강을 크게 해쳐요.</p>
     </div>
-    """, unsafe_allow_html=True)# -------------------- 상담센터 데이터 로드 --------------------
+    """, unsafe_allow_html=True)
+
+# -------------------- 상담센터 데이터 로드 --------------------
 @st.cache_data
 def load_counseling_centers():
     """청소년 상담센터 위치 데이터를 로드"""
@@ -724,7 +726,6 @@ def load_counseling_centers():
         df_centers = pd.read_csv("여성가족부_청소년상담복지센터 현황_20241029 2.csv", encoding='utf-8-sig')
         return df_centers
     except:
-        # 파일이 없을 경우 기본 데이터 반환
         return pd.DataFrame({
             '센터명': ['서울시청소년상담복지센터', '부산시청소년상담복지센터', '인천시청소년상담복지센터'],
             '주소': ['서울시 중구 세종대로 110', '부산시 연제구 중앙대로 1001', '인천시 남동구 정각로 29'],
@@ -744,7 +745,6 @@ def show_counseling_centers():
         st.warning("상담센터 데이터를 불러올 수 없습니다.")
         return
     
-    # 지역 선택
     if '시도명' in df_centers.columns:
         regions = ['전체'] + sorted(df_centers['시도명'].unique().tolist())
     else:
@@ -753,9 +753,8 @@ def show_counseling_centers():
     
     selected = st.selectbox("📍 지역을 선택하세요:", regions, index=0)
     
-    # 필터링
     if selected == '전체':
-        filtered_df = df_centers.head(20)  # 너무 많으면 상위 20개만
+        filtered_df = df_centers.head(20)
     else:
         filtered_df = df_centers[df_centers['시도명'] == selected]
     
@@ -766,7 +765,6 @@ def show_counseling_centers():
     st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
     st.markdown("---")
     
-    # 상담센터 목록 표시 (카드 형식)
     for idx, row in filtered_df.iterrows():
         with st.expander(f"📍 {row['센터명']}"):
             col1, col2 = st.columns([3, 1])
@@ -783,7 +781,6 @@ def show_counseling_centers():
                 """)
             
             with col2:
-                # 전화 걸기 버튼 (모바일에서 작동)
                 phone_clean = str(phone).replace('-', '').replace(' ', '')
                 st.markdown(f"""
                 <a href="tel:{phone_clean}" style="text-decoration:none;">
@@ -793,7 +790,6 @@ def show_counseling_centers():
                     </button>
                 </a>
                 """, unsafe_allow_html=True)
-                
     # 실제 통계 데이터 비교
     st.markdown("### 📈 실제 청소년 통계와 비교")
     
