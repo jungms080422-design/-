@@ -627,7 +627,126 @@ else:
     st.markdown(get_ending_message(ending_type, st.session_state.stats, real_stats), unsafe_allow_html=True)
     
     st.markdown("---")
+
+    # -------------------- 성별별 통계 표시 (get_ending_message 함수 아래에 추가) --------------------
+def show_gender_statistics(stats, user_gender):
+    """사용자 성별에 맞는 통계 표시"""
+    st.markdown("### 📊 나와 같은 성별 청소년 통계")
     
+    gender_text = "남학생" if user_gender == "male" else "여학생"
+    
+    depression_rate = stats.get('depression', 25.2)
+    suicide_rate = stats.get('suicide', 2.7)
+    smoking_rate = stats.get('smoking', 5.9)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #DC3545; color:#212529;'>
+        <h4 style='color:#DC3545; margin-top:0;'>😔 {gender_text} 우울 경험률</h4>
+        <p style='font-size:32px; font-weight:bold; color:#DC3545; margin:10px 0;'>{depression_rate:.1f}%</p>
+        <p>같은 성별 청소년 중 이만큼이<br>우울감을 경험하고 있어요.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown(f"""
+        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #C82333; color:#212529;'>
+        <h4 style='color:#C82333; margin-top:0;'>⚠️ {gender_text} 자살시도율</h4>
+        <p style='font-size:32px; font-weight:bold; color:#C82333; margin:10px 0;'>{suicide_rate:.1f}%</p>
+        <p>하지만 대부분은<br>도움으로 회복했어요.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    st.markdown(f"""
+    <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #FD7E14; color:#212529;'>
+    <h4 style='color:#FD7E14; margin-top:0;'>🚬 {gender_text} 흡연율</h4>
+    <p style='font-size:32px; font-weight:bold; color:#FD7E14; margin:10px 0;'>{smoking_rate:.1f}%</p>
+    <p>흡연은 중독성이 강하고 건강을 크게 해쳐요.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# -------------------- 상담센터 데이터 로드 --------------------
+@st.cache_data
+def load_counseling_centers():
+    """청소년 상담센터 위치 데이터를 로드"""
+    try:
+        df_centers = pd.read_csv("여성가족부_청소년상담복지센터 현황_20241029 2.csv", encoding='utf-8-sig')
+        return df_centers
+    except:
+        # 파일이 없을 경우 기본 데이터 반환
+        return pd.DataFrame({
+            '센터명': ['서울시청소년상담복지센터', '부산시청소년상담복지센터', '인천시청소년상담복지센터'],
+            '주소': ['서울시 중구 세종대로 110', '부산시 연제구 중앙대로 1001', '인천시 남동구 정각로 29'],
+            '전화번호_1': ['02-2285-1318', '051-860-2000', '032-427-1318'],
+            '시도명': ['서울특별시', '부산광역시', '인천광역시'],
+            '시군구명': ['중구', '연제구', '남동구']
+        })
+
+# -------------------- 상담센터 찾기 --------------------
+def show_counseling_centers():
+    """지역별 상담센터 표시"""
+    st.markdown("### 🏢 내 주변 청소년 상담센터 찾기")
+    
+    df_centers = load_counseling_centers()
+    
+    if df_centers.empty:
+        st.warning("상담센터 데이터를 불러올 수 없습니다.")
+        return
+    
+    # 지역 선택
+    if '시도명' in df_centers.columns:
+        regions = ['전체'] + sorted(df_centers['시도명'].unique().tolist())
+    else:
+        st.warning("지역 정보가 없습니다.")
+        return
+    
+    selected = st.selectbox("📍 지역을 선택하세요:", regions, index=0)
+    
+    # 필터링
+    if selected == '전체':
+        filtered_df = df_centers.head(20)  # 너무 많으면 상위 20개만
+    else:
+        filtered_df = df_centers[df_centers['시도명'] == selected]
+    
+    if filtered_df.empty:
+        st.info(f"{selected}에는 등록된 상담센터가 없습니다.")
+        return
+    
+    st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
+    st.markdown("---")
+    
+    # 상담센터 목록 표시 (카드 형식)
+    for idx, row in filtered_df.iterrows():
+        with st.expander(f"📍 {row['센터명']}"):
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                address = row.get('주소', '주소 정보 없음')
+                phone = row.get('전화번호_1', '전화번호 없음')
+                region = f"{row.get('시도명', '')} {row.get('시군구명', '')}"
+                
+                st.markdown(f"""
+                **📍 지역:** {region}  
+                **🏠 주소:** {address}  
+                **📞 전화번호:** {phone}
+                """)
+            
+            with col2:
+                # 전화 걸기 버튼 (모바일에서 작동)
+                phone_clean = str(phone).replace('-', '').replace(' ', '')
+                st.markdown(f"""
+                <a href="tel:{phone_clean}" style="text-decoration:none;">
+                    <button style="background-color:#28A745; color:white; padding:10px 15px; 
+                    border:none; border-radius:5px; cursor:pointer; width:100%; font-weight:bold;">
+                    📞 전화하기
+                    </button>
+                </a>
+                """, unsafe_allow_html=True)
+                
     # 실제 통계 데이터 비교
     st.markdown("### 📈 실제 청소년 통계와 비교")
     
@@ -691,6 +810,18 @@ else:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
+
+    st.markdown("---")
+    
+    # 성별별 통계 표시 추가
+    show_gender_statistics(real_stats, st.session_state.gender)
+    
+    st.markdown("---")
+    
+    # 상담센터 찾기 추가
+    show_counseling_centers()
+    
+    st.markdown("---")
     
     # 도움 받을 수 있는 곳
     st.markdown("### 📞 도움받을 수 있는 곳")
@@ -738,84 +869,6 @@ else:
     
     st.markdown("---")
 
-
-    import pandas as pd
-import folium
-
-# 1. 데이터 로드 및 좌표 데이터 준비
-file_path = "여성가족부_청소년상담복지센터 현황_20241029 2.csv"
-df = pd.read_csv(file_path)
-
-# 사용자님이 제공해주신 위도/경도 데이터 (상위 14개 센터에 매칭)
-# 형식: (위도, 경도)
-coordinates = [
-    (37.59064, 126.99338),  # 1
-    (37.53890, 126.96501),  # 2
-    (37.55423, 127.02710),  # 3
-    (37.54027, 127.06517),  # 4
-    (37.57394, 127.02462),  # 5
-    (37.57323, 127.08597),  # 6
-    (37.64178, 127.02216),  # 7
-    (37.67143, 127.05483),  # 8
-    (34.93669, 126.56360),  # 9 (다른 지역 좌표로 추정되나, 순서대로 사용)
-    (37.58472, 126.91373),  # 10
-    (37.55317, 126.90270),  # 11
-    (37.47826, 126.99907),  # 12
-    (37.48360, 127.08878),  # 13
-    (37.48815, 127.11271)   # 14
-]
-
-# 상위 14개 데이터에 위도/경도 컬럼 추가
-num_coords = len(coordinates)
-if len(df) >= num_coords:
-    # 14개 좌표만 별도로 데이터프레임으로 만들어 기존 df에 병합
-    coord_df = pd.DataFrame(coordinates, columns=['위도', '경도'])
-    
-    # 기존 df의 상위 14개 행에 좌표 데이터 할당
-    df.loc[:num_coords-1, ['위도', '경도']] = coord_df[['위도', '경도']].values
-    
-    # 좌표가 없는 나머지 데이터는 제거 (시각화 대상에서 제외)
-    df = df.dropna(subset=['위도', '경도'])
-else:
-    print(f"⚠️ 파일의 데이터 개수가 {len(df)}개로, 제공된 좌표 {num_coords}개보다 적습니다.")
-    print("제공된 좌표 수에 맞게 모든 데이터를 시각화합니다.")
-    coord_df = pd.DataFrame(coordinates[:len(df)], columns=['위도', '경도'])
-    df['위도'] = coord_df['위도']
-    df['경도'] = coord_df['경도']
-    df = df.dropna(subset=['위도', '경도'])
-
-# 2. Folium 지도 생성
-# 지도의 중심은 시각화되는 센터들의 평균 좌표로 설정
-center_lat = df['위도'].mean()
-center_lon = df['경도'].mean()
-m = folium.Map(location=[center_lat, center_lon], zoom_start=10) # 서울/경기권 위주로 보여주기 위해 zoom_start=10 설정
-
-# 3. 지도에 마커 추가
-for idx, row in df.iterrows():
-    # 툴팁에 표시할 상세 정보 HTML 생성
-    tooltip_html = f"""
-    <h4>**{row['센터명']}**</h4>
-    <ul>
-        <li>**지역:** {row['시도명']} {row['시군구명']}</li>
-        <li>**주소:** {row['주소']}</li>
-        <li>**전화번호:** {row['전화번호_1']}</li>
-    </ul>
-    """
-    
-    # 마커 추가
-    folium.Marker(
-        [row['위도'], row['경도']],
-        tooltip=folium.Tooltip(tooltip_html, permanent=False),
-        popup=row['센터명'],
-        icon=folium.Icon(color='blue', icon='star') # 마커 아이콘 설정
-    ).add_to(m)
-
-# 4. 지도 저장
-map_filename = '청소년상담복지센터_현황_지도.html'
-m.save(map_filename)
-
-print(f"✅ Folium 지도가 성공적으로 생성되었으며, '{map_filename}' 파일로 저장되었습니다.")
-print("이 HTML 파일을 웹 브라우저에서 열어 시각화 결과를 확인해 보세요.")
     # 다시 시작하기 버튼
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
