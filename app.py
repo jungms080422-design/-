@@ -563,65 +563,16 @@ elif st.session_state.stage < len(SCENARIOS):
         <div style='font-size:12px; color:#666;'>행복도</div>
         </div>
         """, unsafe_allow_html=True)
-
+    
     st.markdown("---")
-
-    # 현재 시나리오 불러오기
-    current_scenario = SCENARIOS[st.session_state.stage]
-    st.markdown(f"### 📖 상황 {st.session_state.stage + 1}: {current_scenario['text']}")
-
-    # 선택지 출력
-    for i, choice in enumerate(current_scenario['choices']):
-        if st.button(choice["text"], use_container_width=True):
-            # 선택 효과 적용
-            for key, value in choice["effects"].items():
-                st.session_state.stats[key] += value
-                # 수치 범위 제한 (0~100)
-                st.session_state.stats[key] = max(0, min(100, st.session_state.stats[key]))
-
-            # 피드백 표시
-            st.session_state.history.append({
-                "scenario": current_scenario["id"],
-                "choice": choice["text"],
-                "feedback": choice["feedback"]
-            })
-
-            # 다음 단계로 이동
-            st.session_state.stage += 1
-            st.rerun()
-
-    # 이전 선택에 대한 피드백 표시
-    if st.session_state.history:
-        last_feedback = st.session_state.history[-1]["feedback"]
-        st.markdown(f"""
-        <div style='background-color:#E9F7EF; padding:15px; border-radius:10px; margin-top:20px;'>
-        <b>💬 피드백:</b> {last_feedback}
-        </div>
-        """, unsafe_allow_html=True)
-
-# -------------------- 엔딩 화면 --------------------
-    else:
-        st.markdown("---")
-        real_stats = load_statistics()
-        ending_type, ending_title, ending_color = analyze_result(st.session_state.stats, real_stats)
-
-        st.markdown(f"<h2 style='text-align:center; color:{ending_color};'>{ending_title}</h2>", unsafe_allow_html=True)
-        st.markdown(get_ending_message(ending_type, st.session_state.stats, real_stats), unsafe_allow_html=True)
-
-    # 최종 통계 요약
-        st.markdown("### 📊 당신의 최종 상태")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("정신건강", f"{st.session_state.stats['mental']} 점")
-        col2.metric("신체건강", f"{st.session_state.stats['physical']} 점")
-        col3.metric("위험도", f"{st.session_state.stats['risk']} 점")
-        col4.metric("행복도", f"{st.session_state.stats['happiness']} 점")
-
-    # 다시 시작 버튼
-    if st.button("🔁 다시 시작하기", use_container_width=True):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-        
+    
+    # 진행도 표시
+    progress = (st.session_state.stage + 1) / len(SCENARIOS)
+    st.progress(progress)
+    st.markdown(f"<p style='text-align:center; color:#666; font-size:14px;'>상황 {st.session_state.stage + 1} / {len(SCENARIOS)}</p>", unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     # 현재 시나리오
     scenario = SCENARIOS[st.session_state.stage]
     
@@ -765,10 +716,84 @@ def show_gender_statistics(stats, user_gender):
     <p style='font-size:32px; font-weight:bold; color:#FD7E14; margin:10px 0;'>{smoking_rate:.1f}%</p>
     <p>흡연은 중독성이 강하고 건강을 크게 해쳐요.</p>
     </div>
-    """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)# -------------------- 상담센터 데이터 로드 --------------------
+@st.cache_data
+def load_counseling_centers():
+    """청소년 상담센터 위치 데이터를 로드"""
+    try:
+        df_centers = pd.read_csv("여성가족부_청소년상담복지센터 현황_20241029 2.csv", encoding='utf-8-sig')
+        return df_centers
+    except:
+        # 파일이 없을 경우 기본 데이터 반환
+        return pd.DataFrame({
+            '센터명': ['서울시청소년상담복지센터', '부산시청소년상담복지센터', '인천시청소년상담복지센터'],
+            '주소': ['서울시 중구 세종대로 110', '부산시 연제구 중앙대로 1001', '인천시 남동구 정각로 29'],
+            '전화번호_1': ['02-2285-1318', '051-860-2000', '032-427-1318'],
+            '시도명': ['서울특별시', '부산광역시', '인천광역시'],
+            '시군구명': ['중구', '연제구', '남동구']
+        })
 
-# -------------------- 상담센터 데이터 로드 --------------------
-
+# -------------------- 상담센터 찾기 --------------------
+def show_counseling_centers():
+    """지역별 상담센터 표시"""
+    st.markdown("### 🏢 내 주변 청소년 상담센터 찾기")
+    
+    df_centers = load_counseling_centers()
+    
+    if df_centers.empty:
+        st.warning("상담센터 데이터를 불러올 수 없습니다.")
+        return
+    
+    # 지역 선택
+    if '시도명' in df_centers.columns:
+        regions = ['전체'] + sorted(df_centers['시도명'].unique().tolist())
+    else:
+        st.warning("지역 정보가 없습니다.")
+        return
+    
+    selected = st.selectbox("📍 지역을 선택하세요:", regions, index=0)
+    
+    # 필터링
+    if selected == '전체':
+        filtered_df = df_centers.head(20)  # 너무 많으면 상위 20개만
+    else:
+        filtered_df = df_centers[df_centers['시도명'] == selected]
+    
+    if filtered_df.empty:
+        st.info(f"{selected}에는 등록된 상담센터가 없습니다.")
+        return
+    
+    st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
+    st.markdown("---")
+    
+    # 상담센터 목록 표시 (카드 형식)
+    for idx, row in filtered_df.iterrows():
+        with st.expander(f"📍 {row['센터명']}"):
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                address = row.get('주소', '주소 정보 없음')
+                phone = row.get('전화번호_1', '전화번호 없음')
+                region = f"{row.get('시도명', '')} {row.get('시군구명', '')}"
+                
+                st.markdown(f"""
+                **📍 지역:** {region}  
+                **🏠 주소:** {address}  
+                **📞 전화번호:** {phone}
+                """)
+            
+            with col2:
+                # 전화 걸기 버튼 (모바일에서 작동)
+                phone_clean = str(phone).replace('-', '').replace(' ', '')
+                st.markdown(f"""
+                <a href="tel:{phone_clean}" style="text-decoration:none;">
+                    <button style="background-color:#28A745; color:white; padding:10px 15px; 
+                    border:none; border-radius:5px; cursor:pointer; width:100%; font-weight:bold;">
+                    📞 전화하기
+                    </button>
+                </a>
+                """, unsafe_allow_html=True)
+                
     # 실제 통계 데이터 비교
     st.markdown("### 📈 실제 청소년 통계와 비교")
     
