@@ -563,16 +563,65 @@ elif st.session_state.stage < len(SCENARIOS):
         <div style='font-size:12px; color:#666;'>행복도</div>
         </div>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("---")
-    
-    # 진행도 표시
-    progress = (st.session_state.stage + 1) / len(SCENARIOS)
-    st.progress(progress)
-    st.markdown(f"<p style='text-align:center; color:#666; font-size:14px;'>상황 {st.session_state.stage + 1} / {len(SCENARIOS)}</p>", unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
+
+    # 현재 시나리오 불러오기
+    current_scenario = SCENARIOS[st.session_state.stage]
+    st.markdown(f"### 📖 상황 {st.session_state.stage + 1}: {current_scenario['text']}")
+
+    # 선택지 출력
+    for i, choice in enumerate(current_scenario['choices']):
+        if st.button(choice["text"], use_container_width=True):
+            # 선택 효과 적용
+            for key, value in choice["effects"].items():
+                st.session_state.stats[key] += value
+                # 수치 범위 제한 (0~100)
+                st.session_state.stats[key] = max(0, min(100, st.session_state.stats[key]))
+
+            # 피드백 표시
+            st.session_state.history.append({
+                "scenario": current_scenario["id"],
+                "choice": choice["text"],
+                "feedback": choice["feedback"]
+            })
+
+            # 다음 단계로 이동
+            st.session_state.stage += 1
+            st.rerun()
+
+    # 이전 선택에 대한 피드백 표시
+    if st.session_state.history:
+        last_feedback = st.session_state.history[-1]["feedback"]
+        st.markdown(f"""
+        <div style='background-color:#E9F7EF; padding:15px; border-radius:10px; margin-top:20px;'>
+        <b>💬 피드백:</b> {last_feedback}
+        </div>
+        """, unsafe_allow_html=True)
+
+# -------------------- 엔딩 화면 --------------------
+else:
+    st.markdown("---")
+    real_stats = load_statistics()
+    ending_type, ending_title, ending_color = analyze_result(st.session_state.stats, real_stats)
+
+    st.markdown(f"<h2 style='text-align:center; color:{ending_color};'>{ending_title}</h2>", unsafe_allow_html=True)
+    st.markdown(get_ending_message(ending_type, st.session_state.stats, real_stats), unsafe_allow_html=True)
+
+    # 최종 통계 요약
+    st.markdown("### 📊 당신의 최종 상태")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("정신건강", f"{st.session_state.stats['mental']} 점")
+    col2.metric("신체건강", f"{st.session_state.stats['physical']} 점")
+    col3.metric("위험도", f"{st.session_state.stats['risk']} 점")
+    col4.metric("행복도", f"{st.session_state.stats['happiness']} 점")
+
+    # 다시 시작 버튼
+    if st.button("🔁 다시 시작하기", use_container_width=True):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+        
     # 현재 시나리오
     scenario = SCENARIOS[st.session_state.stage]
     
