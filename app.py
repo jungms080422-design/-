@@ -5,6 +5,300 @@ import random
 
 # -------------------- App Settings --------------------
 st.set_page_config(page_title="청소년 생명존중 시뮬레이터", page_icon="💙", layout="centered")
+@st.cache_data
+def load_counseling_centers():
+    """청소년 상담센터 위치 데이터를 로드"""
+    try:
+        df_centers = pd.read_csv("여성가족부_청소년상담복지센터 현황_20241029 2.csv", encoding='utf-8-sig')
+        return df_centers
+    except:
+        # 파일이 없을 경우 기본 데이터 반환
+        return pd.DataFrame({
+            '센터명': ['서울시청소년상담복지센터', '부산시청소년상담복지센터', '인천시청소년상담복지센터'],
+            '주소': ['서울시 중구 세종대로 110', '부산시 연제구 중앙대로 1001', '인천시 남동구 정각로 29'],
+            '전화번호_1': ['02-2285-1318', '051-860-2000', '032-427-1318'],
+            '시도명': ['서울특별시', '부산광역시', '인천광역시'],
+            '시군구명': ['중구', '연제구', '남동구']
+        })
+
+# -------------------- 상담센터 찾기 --------------------
+def show_counseling_centers():
+    """지역별 상담센터 표시"""
+    st.markdown("### 🏢 내 주변 청소년 상담센터 찾기")
+    
+    df_centers = load_counseling_centers()
+    
+    if df_centers.empty:
+        st.warning("상담센터 데이터를 불러올 수 없습니다.")
+        return
+    
+    # 지역 선택
+    if '시도명' in df_centers.columns:
+        regions = ['전체'] + sorted(df_centers['시도명'].unique().tolist())
+    else:
+        st.warning("지역 정보가 없습니다.")
+        return
+    
+    selected = st.selectbox("📍 지역을 선택하세요:", regions, index=0)
+    
+    # 필터링
+    if selected == '전체':
+        filtered_df = df_centers.head(20)  # 너무 많으면 상위 20개만
+    else:
+        filtered_df = df_centers[df_centers['시도명'] == selected]
+    
+    if filtered_df.empty:
+        st.info(f"{selected}에는 등록된 상담센터가 없습니다.")
+        return
+    
+    st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
+    st.markdown("---")
+    
+    # 상담센터 목록 표시 (카드 형식)
+    for idx, row in filtered_df.iterrows():
+        with st.expander(f"📍 {row['센터명']}"):
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                address = row.get('주소', '주소 정보 없음')
+                phone = row.get('전화번호_1', '전화번호 없음')
+                region = f"{row.get('시도명', '')} {row.get('시군구명', '')}"
+                
+                st.markdown(f"""
+                **📍 지역:** {region}  
+                **🏠 주소:** {address}  
+                **📞 전화번호:** {phone}
+                """)
+            
+            with col2:
+                # 전화 걸기 버튼 (모바일에서 작동)
+                phone_clean = str(phone).replace('-', '').replace(' ', '')
+                st.markdown(f"""
+                <a href="tel:{phone_clean}" style="text-decoration:none;">
+                    <button style="background-color:#28A745; color:white; padding:10px 15px; 
+                    border:none; border-radius:5px; cursor:pointer; width:100%; font-weight:bold;">
+                    📞 전화하기
+                    </button>
+                </a>
+                """, unsafe_allow_html=True)
+                
+    # 실제 통계 데이터 비교
+    st.markdown("### 📈 실제 청소년 통계와 비교")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #DC3545; color:#212529;'>
+        <h4 style='color:#DC3545; margin-top:0;'>📊 우울 경험률</h4>
+        <p>청소년 중 약</p>
+        <p style='font-size:32px; font-weight:bold; color:#DC3545; margin:10px 0;'>{real_stats['depression']:.1f}%</p>
+        <p>가 우울감을 경험하고 있습니다.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #FD7E14; color:#212529;'>
+        <h4 style='color:#FD7E14; margin-top:0;'>🚬 흡연율</h4>
+        <p>청소년 흡연율:</p>
+        <p style='font-size:32px; font-weight:bold; color:#FD7E14; margin:10px 0;'>{real_stats['smoking']:.1f}%</p>
+        <p>담배는 중독성이 강하고<br>건강을 크게 해칩니다.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #C82333; color:#212529;'>
+        <h4 style='color:#C82333; margin-top:0;'>⚠️ 자살시도율</h4>
+        <p>청소년 중 약</p>
+        <p style='font-size:32px; font-weight:bold; color:#C82333; margin:10px 0;'>{real_stats['suicide']:.1f}%</p>
+        <p>가 자살을 시도한<br>경험이 있습니다.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #6C757D; color:#212529;'>
+        <h4 style='color:#6C757D; margin-top:0;'>🔴 사회문제 노출</h4>
+        <p>위험 노출도:</p>
+        <p style='font-size:32px; font-weight:bold; color:#6C757D; margin:10px 0;'>{real_stats['risk_exposure']:.1f}%</p>
+        <p>위험한 환경에 노출된<br>청소년의 비율입니다.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 생명존중 메시지
+    st.markdown("""
+    <div style='background-color:#D4EDDA; padding:25px; border-radius:15px; border-left:6px solid #28A745; color:#155724;'>
+    <h3 style='color:#28A745; margin-top:0;'>💚 당신은 소중한 사람입니다</h3>
+    <p style='font-size:16px; line-height:1.8;'>
+    힘든 순간이 있더라도, 당신의 생명은 무엇보다 소중합니다.<br>
+    도움을 청하는 것은 약한 것이 아니라 <b>용기있는 행동</b>입니다.<br>
+    혼자 감당하지 말고, 언제든 주변에 도움을 요청하세요.<br><br>
+    <b style='font-size:18px;'>당신은 혼자가 아닙니다. 💙</b>
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+    st.markdown("---")
+    
+    # 성별별 통계 표시 추가
+    show_gender_statistics(real_stats, st.session_state.gender)
+    
+    st.markdown("---")
+    
+    # 상담센터 찾기 추가
+    show_counseling_centers()
+    
+    st.markdown("---")
+    
+    # 도움 받을 수 있는 곳
+    st.markdown("### 📞 도움받을 수 있는 곳")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div style='background-color:#FFF3CD; padding:20px; border-radius:10px; border-left:4px solid #FFC107; color:#856404;'>
+        <h4 style='color:#856404; margin-top:0;'>🆘 긴급 상담</h4>
+        <ul style='line-height:2;'>
+        <li><b style='font-size:18px; color:#DC3545;'>119</b> - 응급 상황</li>
+        <li><b style='font-size:18px; color:#DC3545;'>1393</b> - 자살예방상담 (24시간)</li>
+        <li><b style='font-size:18px; color:#DC3545;'>1388</b> - 청소년상담전화 (24시간)</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style='background-color:#D1ECF1; padding:20px; border-radius:10px; border-left:4px solid #17A2B8; color:#0C5460;'>
+        <h4 style='color:#0C5460; margin-top:0;'>🏥 전문 기관</h4>
+        <ul style='line-height:2;'>
+        <li><b>117</b> - 학교폭력 신고</li>
+        <li><b>182</b> - 사이버범죄 신고</li>
+        <li>정신건강복지센터</li>
+        <li>학교 상담실</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 온라인 상담
+    st.markdown("""
+    <div style='background-color:#E7F3FF; padding:20px; border-radius:10px; border-left:4px solid #007BFF; color:#004085;'>
+    <h4 style='color:#007BFF; margin-top:0;'>💬 온라인 상담</h4>
+    <ul style='line-height:2;'>
+    <li>카카오톡 플러스친구: <b>"자살예방상담"</b></li>
+    <li>청소년사이버상담센터: <a href="http://www.cyber1388.kr" style='color:#007BFF;'>www.cyber1388.kr</a></li>
+    <li>대한소아청소년정신의학회: <a href="http://www.kacap.or.kr" style='color:#007BFF;'>www.kacap.or.kr</a></li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+    # 다시 시작하기 버튼
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🔁 다시 시작하기", use_container_width=True, type="primary"):
+            st.session_state.stage = 0
+            st.session_state.stats = {"mental": 50, "physical": 50, "risk": 0, "happiness": 50}
+            st.session_state.history = []
+            st.session_state.game_started = False
+            st.session_state.last_feedback = None
+            st.rerun()
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("""
+    <p style='text-align:center; color:#6C757D; font-size:14px;'>
+    이 시뮬레이터는 교육 목적으로 제작되었습니다.<br>
+    실제로 도움이 필요하시면 반드시 전문가와 상담하세요.
+    </p>
+    """, unsafe_allow_html=True)
+
+# -------------------------------
+# 데이터 로드 (여성가족부 센터 현황)
+# -------------------------------
+
+@st.cache_data
+def load_center_df():
+    try:
+        df = pd.read_csv(
+            "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv"
+        )
+        df.columns = df.columns.str.strip()
+        return df
+    except Exception as e:
+        st.error(f"센터 현황 CSV를 불러오지 못했습니다: {e}")
+        return pd.DataFrame()
+
+def render_center_map():
+    """엔딩 화면 하단에 표시할 상담센터 지도"""
+    df = load_center_df()
+
+    st.markdown("## 🧭 여성가족부 청소년상담복지센터 현황 지도")
+
+    if df.empty:
+        st.info("센터 현황 데이터를 불러오지 못해 지도를 생략합니다.")
+        return
+
+    # 지역(광역시도) 선택
+    if "지역" not in df.columns:
+        st.warning("CSV에 '지역' 컬럼이 없습니다.")
+        return
+
+    region_list = sorted(df["지역"].dropna().unique())
+    selected_region = st.selectbox("광역시도 선택", region_list, key="map_region")
+
+    # 시군구 선택
+    filtered_df_region = df[df["지역"] == selected_region]
+    if "시군구" not in filtered_df_region.columns:
+        st.warning("CSV에 '시군구' 컬럼이 없습니다.")
+        return
+
+    sigungu_list = sorted(filtered_df_region["시군구명"].dropna().unique())
+    selected_sigungu = st.selectbox("시군구 선택", sigungu_list, key="map_sigungu")
+
+    # 선택된 지역의 센터 필터링
+    filtered_df = filtered_df_region[filtered_df_region["시군구"] == selected_sigungu]
+
+    # 위도/경도 컬럼 탐색
+    lat_col, lon_col = None, None
+    for c in filtered_df.columns:
+        if "위도" in c:
+            lat_col = c
+        if "경도" in c:
+            lon_col = c
+
+    if lat_col and lon_col:
+        try:
+            fig = px.scatter_mapbox(
+                filtered_df,
+                lat=lat_col,
+                lon=lon_col,
+                hover_name=("시설명" if "시설명" in filtered_df.columns else filtered_df.columns[0]),
+                hover_data={"주소": True, lat_col: False, lon_col: False} if "주소" in filtered_df.columns else None,
+                color_discrete_sequence=["#FF6699"],
+                zoom=10,
+                height=600
+            )
+            fig.update_layout(
+                mapbox_style="open-street-map",
+                margin={"r": 0, "t": 0, "l": 0, "b": 0}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"지도를 그리는 중 오류가 발생했습니다: {e}")
+    else:
+        st.error("❌ 위도/경도 정보가 없습니다. CSV에 '위도', '경도' 컬럼이 있는지 확인해주세요!")
+
 
 # -------------------- 초기 세션 --------------------
 if "game_started" not in st.session_state:
@@ -671,7 +965,7 @@ else:
     st.markdown(get_ending_message(ending_type, st.session_state.stats, real_stats), unsafe_allow_html=True)
     
     st.markdown("---")
-
+    render_center_map()
 # -------------------- 성별별 통계 표시 --------------------
 def show_gender_statistics(stats, user_gender):
     """사용자 성별에 맞는 통계 표시"""
@@ -718,298 +1012,3 @@ def show_gender_statistics(stats, user_gender):
     <p>흡연은 중독성이 강하고 건강을 크게 해쳐요.</p>
     </div>
     """, unsafe_allow_html=True)# -------------------- 상담센터 데이터 로드 --------------------
-@st.cache_data
-def load_counseling_centers():
-    """청소년 상담센터 위치 데이터를 로드"""
-    try:
-        df_centers = pd.read_csv("여성가족부_청소년상담복지센터 현황_20241029 2.csv", encoding='utf-8-sig')
-        return df_centers
-    except:
-        # 파일이 없을 경우 기본 데이터 반환
-        return pd.DataFrame({
-            '센터명': ['서울시청소년상담복지센터', '부산시청소년상담복지센터', '인천시청소년상담복지센터'],
-            '주소': ['서울시 중구 세종대로 110', '부산시 연제구 중앙대로 1001', '인천시 남동구 정각로 29'],
-            '전화번호_1': ['02-2285-1318', '051-860-2000', '032-427-1318'],
-            '시도명': ['서울특별시', '부산광역시', '인천광역시'],
-            '시군구명': ['중구', '연제구', '남동구']
-        })
-
-# -------------------- 상담센터 찾기 --------------------
-def show_counseling_centers():
-    """지역별 상담센터 표시"""
-    st.markdown("### 🏢 내 주변 청소년 상담센터 찾기")
-    
-    df_centers = load_counseling_centers()
-    
-    if df_centers.empty:
-        st.warning("상담센터 데이터를 불러올 수 없습니다.")
-        return
-    
-    # 지역 선택
-    if '시도명' in df_centers.columns:
-        regions = ['전체'] + sorted(df_centers['시도명'].unique().tolist())
-    else:
-        st.warning("지역 정보가 없습니다.")
-        return
-    
-    selected = st.selectbox("📍 지역을 선택하세요:", regions, index=0)
-    
-    # 필터링
-    if selected == '전체':
-        filtered_df = df_centers.head(20)  # 너무 많으면 상위 20개만
-    else:
-        filtered_df = df_centers[df_centers['시도명'] == selected]
-    
-    if filtered_df.empty:
-        st.info(f"{selected}에는 등록된 상담센터가 없습니다.")
-        return
-    
-    st.markdown(f"**{selected}** 지역에 **{len(filtered_df)}개**의 상담센터가 있습니다.")
-    st.markdown("---")
-    
-    # 상담센터 목록 표시 (카드 형식)
-    for idx, row in filtered_df.iterrows():
-        with st.expander(f"📍 {row['센터명']}"):
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                address = row.get('주소', '주소 정보 없음')
-                phone = row.get('전화번호_1', '전화번호 없음')
-                region = f"{row.get('시도명', '')} {row.get('시군구명', '')}"
-                
-                st.markdown(f"""
-                **📍 지역:** {region}  
-                **🏠 주소:** {address}  
-                **📞 전화번호:** {phone}
-                """)
-            
-            with col2:
-                # 전화 걸기 버튼 (모바일에서 작동)
-                phone_clean = str(phone).replace('-', '').replace(' ', '')
-                st.markdown(f"""
-                <a href="tel:{phone_clean}" style="text-decoration:none;">
-                    <button style="background-color:#28A745; color:white; padding:10px 15px; 
-                    border:none; border-radius:5px; cursor:pointer; width:100%; font-weight:bold;">
-                    📞 전화하기
-                    </button>
-                </a>
-                """, unsafe_allow_html=True)
-                
-    # 실제 통계 데이터 비교
-    st.markdown("### 📈 실제 청소년 통계와 비교")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #DC3545; color:#212529;'>
-        <h4 style='color:#DC3545; margin-top:0;'>📊 우울 경험률</h4>
-        <p>청소년 중 약</p>
-        <p style='font-size:32px; font-weight:bold; color:#DC3545; margin:10px 0;'>{real_stats['depression']:.1f}%</p>
-        <p>가 우울감을 경험하고 있습니다.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown(f"""
-        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #FD7E14; color:#212529;'>
-        <h4 style='color:#FD7E14; margin-top:0;'>🚬 흡연율</h4>
-        <p>청소년 흡연율:</p>
-        <p style='font-size:32px; font-weight:bold; color:#FD7E14; margin:10px 0;'>{real_stats['smoking']:.1f}%</p>
-        <p>담배는 중독성이 강하고<br>건강을 크게 해칩니다.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #C82333; color:#212529;'>
-        <h4 style='color:#C82333; margin-top:0;'>⚠️ 자살시도율</h4>
-        <p>청소년 중 약</p>
-        <p style='font-size:32px; font-weight:bold; color:#C82333; margin:10px 0;'>{real_stats['suicide']:.1f}%</p>
-        <p>가 자살을 시도한<br>경험이 있습니다.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown(f"""
-        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #6C757D; color:#212529;'>
-        <h4 style='color:#6C757D; margin-top:0;'>🔴 사회문제 노출</h4>
-        <p>위험 노출도:</p>
-        <p style='font-size:32px; font-weight:bold; color:#6C757D; margin:10px 0;'>{real_stats['risk_exposure']:.1f}%</p>
-        <p>위험한 환경에 노출된<br>청소년의 비율입니다.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # 생명존중 메시지
-    st.markdown("""
-    <div style='background-color:#D4EDDA; padding:25px; border-radius:15px; border-left:6px solid #28A745; color:#155724;'>
-    <h3 style='color:#28A745; margin-top:0;'>💚 당신은 소중한 사람입니다</h3>
-    <p style='font-size:16px; line-height:1.8;'>
-    힘든 순간이 있더라도, 당신의 생명은 무엇보다 소중합니다.<br>
-    도움을 청하는 것은 약한 것이 아니라 <b>용기있는 행동</b>입니다.<br>
-    혼자 감당하지 말고, 언제든 주변에 도움을 요청하세요.<br><br>
-    <b style='font-size:18px;'>당신은 혼자가 아닙니다. 💙</b>
-    </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-
-    st.markdown("---")
-    
-    # 성별별 통계 표시 추가
-    show_gender_statistics(real_stats, st.session_state.gender)
-    
-    st.markdown("---")
-    
-    # 상담센터 찾기 추가
-    show_counseling_centers()
-    
-    st.markdown("---")
-    
-    # 도움 받을 수 있는 곳
-    st.markdown("### 📞 도움받을 수 있는 곳")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        <div style='background-color:#FFF3CD; padding:20px; border-radius:10px; border-left:4px solid #FFC107; color:#856404;'>
-        <h4 style='color:#856404; margin-top:0;'>🆘 긴급 상담</h4>
-        <ul style='line-height:2;'>
-        <li><b style='font-size:18px; color:#DC3545;'>119</b> - 응급 상황</li>
-        <li><b style='font-size:18px; color:#DC3545;'>1393</b> - 자살예방상담 (24시간)</li>
-        <li><b style='font-size:18px; color:#DC3545;'>1388</b> - 청소년상담전화 (24시간)</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div style='background-color:#D1ECF1; padding:20px; border-radius:10px; border-left:4px solid #17A2B8; color:#0C5460;'>
-        <h4 style='color:#0C5460; margin-top:0;'>🏥 전문 기관</h4>
-        <ul style='line-height:2;'>
-        <li><b>117</b> - 학교폭력 신고</li>
-        <li><b>182</b> - 사이버범죄 신고</li>
-        <li>정신건강복지센터</li>
-        <li>학교 상담실</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # 온라인 상담
-    st.markdown("""
-    <div style='background-color:#E7F3FF; padding:20px; border-radius:10px; border-left:4px solid #007BFF; color:#004085;'>
-    <h4 style='color:#007BFF; margin-top:0;'>💬 온라인 상담</h4>
-    <ul style='line-height:2;'>
-    <li>카카오톡 플러스친구: <b>"자살예방상담"</b></li>
-    <li>청소년사이버상담센터: <a href="http://www.cyber1388.kr" style='color:#007BFF;'>www.cyber1388.kr</a></li>
-    <li>대한소아청소년정신의학회: <a href="http://www.kacap.or.kr" style='color:#007BFF;'>www.kacap.or.kr</a></li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-
-    # 다시 시작하기 버튼
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("🔁 다시 시작하기", use_container_width=True, type="primary"):
-            st.session_state.stage = 0
-            st.session_state.stats = {"mental": 50, "physical": 50, "risk": 0, "happiness": 50}
-            st.session_state.history = []
-            st.session_state.game_started = False
-            st.session_state.last_feedback = None
-            st.rerun()
-    
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("""
-    <p style='text-align:center; color:#6C757D; font-size:14px;'>
-    이 시뮬레이터는 교육 목적으로 제작되었습니다.<br>
-    실제로 도움이 필요하시면 반드시 전문가와 상담하세요.
-    </p>
-    """, unsafe_allow_html=True)
-st.markdown("---")
-render_center_map()   # ✅ 완료 페이지 하단에 지도 표시
-# -------------------------------
-# 데이터 로드 (여성가족부 센터 현황)
-# -------------------------------
-
-@st.cache_data
-def load_center_df():
-    try:
-        df = pd.read_csv(
-            "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv"
-        )
-        df.columns = df.columns.str.strip()
-        return df
-    except Exception as e:
-        st.error(f"센터 현황 CSV를 불러오지 못했습니다: {e}")
-        return pd.DataFrame()
-
-def render_center_map():
-    """엔딩 화면 하단에 표시할 상담센터 지도"""
-    df = load_center_df()
-
-    st.markdown("## 🧭 여성가족부 청소년상담복지센터 현황 지도")
-
-    if df.empty:
-        st.info("센터 현황 데이터를 불러오지 못해 지도를 생략합니다.")
-        return
-
-    # 지역(광역시도) 선택
-    if "지역" not in df.columns:
-        st.warning("CSV에 '지역' 컬럼이 없습니다.")
-        return
-
-    region_list = sorted(df["지역"].dropna().unique())
-    selected_region = st.selectbox("광역시도 선택", region_list, key="map_region")
-
-    # 시군구 선택
-    filtered_df_region = df[df["지역"] == selected_region]
-    if "시군구" not in filtered_df_region.columns:
-        st.warning("CSV에 '시군구' 컬럼이 없습니다.")
-        return
-
-    sigungu_list = sorted(filtered_df_region["시군구명"].dropna().unique())
-    selected_sigungu = st.selectbox("시군구 선택", sigungu_list, key="map_sigungu")
-
-    # 선택된 지역의 센터 필터링
-    filtered_df = filtered_df_region[filtered_df_region["시군구"] == selected_sigungu]
-
-    # 위도/경도 컬럼 탐색
-    lat_col, lon_col = None, None
-    for c in filtered_df.columns:
-        if "위도" in c:
-            lat_col = c
-        if "경도" in c:
-            lon_col = c
-
-    if lat_col and lon_col:
-        try:
-            fig = px.scatter_mapbox(
-                filtered_df,
-                lat=lat_col,
-                lon=lon_col,
-                hover_name=("시설명" if "시설명" in filtered_df.columns else filtered_df.columns[0]),
-                hover_data={"주소": True, lat_col: False, lon_col: False} if "주소" in filtered_df.columns else None,
-                color_discrete_sequence=["#FF6699"],
-                zoom=10,
-                height=600
-            )
-            fig.update_layout(
-                mapbox_style="open-street-map",
-                margin={"r": 0, "t": 0, "l": 0, "b": 0}
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.error(f"지도를 그리는 중 오류가 발생했습니다: {e}")
-    else:
-        st.error("❌ 위도/경도 정보가 없습니다. CSV에 '위도', '경도' 컬럼이 있는지 확인해주세요!")
-
