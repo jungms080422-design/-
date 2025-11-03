@@ -936,7 +936,7 @@ def show_counseling_centers():
     </p>
     """, unsafe_allow_html=True)
     st.markdown("---")
-render_center_map()   # ✅ 완료 페이지 하단에 지도 표시
+load_center_df()   # ✅ 완료 페이지 하단에 지도 표시
 # -------------------------------
 # 데이터 로드 (여성가족부 센터 현황)
 # -------------------------------
