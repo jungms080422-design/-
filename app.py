@@ -259,7 +259,7 @@ def render_center_map():
 
     # 시군구 선택
     filtered_df_region = df[df["지역"] == selected_region]
-    if "시군구" not in filtered_df_region.columns:
+    if "시군구명" not in filtered_df_region.columns:
         st.warning("CSV에 '시군구' 컬럼이 없습니다.")
         return
 
