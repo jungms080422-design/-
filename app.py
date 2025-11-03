@@ -935,8 +935,8 @@ def show_counseling_centers():
     실제로 도움이 필요하시면 반드시 전문가와 상담하세요.
     </p>
     """, unsafe_allow_html=True)
-    st.markdown("---")
-load_center_df()   # ✅ 완료 페이지 하단에 지도 표시
+st.markdown("---")
+render_center_map()   # ✅ 완료 페이지 하단에 지도 표시
 # -------------------------------
 # 데이터 로드 (여성가족부 센터 현황)
 # -------------------------------
