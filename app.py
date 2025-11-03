@@ -939,70 +939,76 @@ def show_counseling_centers():
 # -------------------------------
 # 데이터 로드 (여성가족부 센터 현황)
 # -------------------------------
+
 @st.cache_data
 def load_center_df():
     try:
         df = pd.read_csv(
-            "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv")
+            "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv"
+        )
         df.columns = df.columns.str.strip()
         return df
     except Exception as e:
         st.error(f"센터 현황 CSV를 불러오지 못했습니다: {e}")
         return pd.DataFrame()
 
-df = load_center_df()
+def render_center_map():
+    """엔딩 화면 하단에 표시할 상담센터 지도"""
+    df = load_center_df()
 
-st.title("🧭 여성가족부 청소년상담복지센터 현황 지도")
+    st.markdown("## 🧭 여성가족부 청소년상담복지센터 현황 지도")
 
-if df.empty:
-    st.stop()
+    if df.empty:
+        st.info("센터 현황 데이터를 불러오지 못해 지도를 생략합니다.")
+        return
 
-# 지역(광역시도) 선택
-if "지역" not in df.columns:
-    st.error("CSV에 '지역' 컬럼이 없습니다.")
-    st.stop()
+    # 지역(광역시도) 선택
+    if "지역" not in df.columns:
+        st.warning("CSV에 '지역' 컬럼이 없습니다.")
+        return
 
-region_list = sorted(df["지역"].dropna().unique())
-selected_region = st.selectbox("광역시도 선택", region_list)
+    region_list = sorted(df["지역"].dropna().unique())
+    selected_region = st.selectbox("광역시도 선택", region_list, key="map_region")
 
-# 시군구 선택
-filtered_df_region = df[df["지역"] == selected_region]
-if "시군구" not in filtered_df_region.columns:
-    st.error("CSV에 '시군구' 컬럼이 없습니다.")
-    st.stop()
+    # 시군구 선택
+    filtered_df_region = df[df["지역"] == selected_region]
+    if "시군구" not in filtered_df_region.columns:
+        st.warning("CSV에 '시군구' 컬럼이 없습니다.")
+        return
 
-sigungu_list = sorted(filtered_df_region["시군구"].dropna().unique())
-selected_sigungu = st.selectbox("시군구 선택", sigungu_list)
+    sigungu_list = sorted(filtered_df_region["시군구명"].dropna().unique())
+    selected_sigungu = st.selectbox("시군구 선택", sigungu_list, key="map_sigungu")
 
-# 선택된 지역의 센터 필터링
-filtered_df = filtered_df_region[filtered_df_region["시군구"] == selected_sigungu]
+    # 선택된 지역의 센터 필터링
+    filtered_df = filtered_df_region[filtered_df_region["시군구"] == selected_sigungu]
 
-# 위도/경도 컬럼 이름 탐색
-lat_col, lon_col = None, None
-for c in filtered_df.columns:
-    if "위도" in c:
-        lat_col = c
-    if "경도" in c:
-        lon_col = c
+    # 위도/경도 컬럼 탐색
+    lat_col, lon_col = None, None
+    for c in filtered_df.columns:
+        if "위도" in c:
+            lat_col = c
+        if "경도" in c:
+            lon_col = c
 
-if lat_col and lon_col:
-    try:
-        fig = px.scatter_mapbox(
-            filtered_df,
-            lat=lat_col,
-            lon=lon_col,
-            hover_name=filtered_df.columns[0] if "시설명" not in filtered_df.columns else "시설명",
-            hover_data={"주소": True, lat_col: False, lon_col: False} if "주소" in filtered_df.columns else None,
-            color_discrete_sequence=["#FF6699"],
-            zoom=10,
-            height=600
-        )
-        fig.update_layout(
-            mapbox_style="open-street-map",
-            margin={"r":0, "t":0, "l":0, "b":0}
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    except Exception as e:
-        st.error(f"지도를 그리는 중 오류가 발생했습니다: {e}")
-else:
-    st.error("❌ 위도/경도 정보가 없는 데이터입니다. CSV에 위도, 경도 컬럼이 있는지 확인해주세요!")
+    if lat_col and lon_col:
+        try:
+            fig = px.scatter_mapbox(
+                filtered_df,
+                lat=lat_col,
+                lon=lon_col,
+                hover_name=("시설명" if "시설명" in filtered_df.columns else filtered_df.columns[0]),
+                hover_data={"주소": True, lat_col: False, lon_col: False} if "주소" in filtered_df.columns else None,
+                color_discrete_sequence=["#FF6699"],
+                zoom=10,
+                height=600
+            )
+            fig.update_layout(
+                mapbox_style="open-street-map",
+                margin={"r": 0, "t": 0, "l": 0, "b": 0}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"지도를 그리는 중 오류가 발생했습니다: {e}")
+    else:
+        st.error("❌ 위도/경도 정보가 없습니다. CSV에 '위도', '경도' 컬럼이 있는지 확인해주세요!")
+
