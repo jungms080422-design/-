@@ -804,4 +804,54 @@ def show_gender_statistics(stats, user_gender):
     <p style='font-size:32px; font-weight:bold; color:#FD7E14; margin:10px 0;'>{smoking_rate:.1f}%</p>
     <p>흡연은 중독성이 강하고 건강을 크게 해쳐요.</p>
     </div>
-    """, unsafe_allow_html=True)# -------------------- 상담센터 데이터 로드 --------------------
+    """, unsafe_allow_html=True)
+
+
+import streamlit as st
+import pandas as pd
+
+# -------------------------------
+# 데이터 불러오기
+# -------------------------------
+df = pd.read_csv("https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv", encoding="cp949")
+df.columns = df.columns.str.strip()
+
+# -------------------------------
+# UI 구성
+# -------------------------------
+st.title("🌱 여성가족부 청소년상담복지센터 현황")
+
+st.write("지역과 시군구를 선택하면 해당 지역의 센터 주소와 전화번호를 확인할 수 있습니다.")
+
+# 지역(광역시도) 선택
+region_list = sorted(df["지역"].dropna().unique())
+selected_region = st.selectbox("📍 광역시도 선택", region_list)
+
+# 시군구 선택
+filtered_region_df = df[df["지역"] == selected_region]
+sigungu_list = sorted(filtered_region_df["시군구"].dropna().unique())
+selected_sigungu = st.selectbox("🏙️ 시군구 선택", sigungu_list)
+
+# 선택된 지역 필터링
+filtered_df = filtered_region_df[filtered_region_df["시군구"] == selected_sigungu]
+
+# -------------------------------
+# 결과 표시
+# -------------------------------
+st.subheader(f"📋 {selected_region} {selected_sigungu} 청소년상담복지센터 목록")
+
+if not filtered_df.empty:
+    # 보여줄 컬럼만 선택
+    display_cols = [col for col in ["시설명", "주소", "전화번호"] if col in filtered_df.columns]
+    st.dataframe(filtered_df[display_cols].reset_index(drop=True))
+else:
+    st.warning("해당 지역의 센터 정보가 없습니다.")
+
+# -------------------------------
+# 추가 정보
+# -------------------------------
+with st.expander("ℹ️ 데이터 출처"):
+    st.markdown("""
+    - 본 데이터는 **여성가족부 청소년상담복지센터 현황** 자료를 기반으로 합니다.  
+    - 출처: 여성가족부 청소년상담복지개발원  
+    """)
