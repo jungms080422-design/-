@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import random
 
 # -------------------- App Settings --------------------
@@ -833,7 +834,7 @@ def show_counseling_centers():
         st.markdown("<br>", unsafe_allow_html=True)
         
         st.markdown(f"""
-        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid#6C757D; color:#212529;'>
+        <div style='background-color:white; padding:20px; border-radius:10px; border:2px solid #6C757D; color:#212529;'>
         <h4 style='color:#6C757D; margin-top:0;'>🔴 사회문제 노출</h4>
         <p>위험 노출도:</p>
         <p style='font-size:32px; font-weight:bold; color:#6C757D; margin:10px 0;'>{real_stats['risk_exposure']:.1f}%</p>
@@ -935,54 +936,75 @@ def show_counseling_centers():
     </p>
     """, unsafe_allow_html=True)
 
-df = pd.read_csv("https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv", encoding="cp949")
-# 컬럼 이름 정리 (혹시 공백 있으면 제거)
-df.columns = df.columns.str.strip()
+# -------------------------------
+# 데이터 로드 (여성가족부 센터 현황)
+# -------------------------------
+@st.cache_data
+def load_center_df():
+    try:
+        df = pd.read_csv(
+            "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv",
+            encoding="cp949"
+        )
+        df.columns = df.columns.str.strip()
+        return df
+    except Exception as e:
+        st.error(f"센터 현황 CSV를 불러오지 못했습니다: {e}")
+        return pd.DataFrame()
 
-# -------------------------------
-# UI 구성
-# -------------------------------
+df = load_center_df()
+
 st.title("🧭 여성가족부 청소년상담복지센터 현황 지도")
 
+if df.empty:
+    st.stop()
+
 # 지역(광역시도) 선택
+if "지역" not in df.columns:
+    st.error("CSV에 '지역' 컬럼이 없습니다.")
+    st.stop()
+
 region_list = sorted(df["지역"].dropna().unique())
 selected_region = st.selectbox("광역시도 선택", region_list)
 
-# 시군구 선택 (해당 광역시도만 필터링)
+# 시군구 선택
 filtered_df_region = df[df["지역"] == selected_region]
+if "시군구" not in filtered_df_region.columns:
+    st.error("CSV에 '시군구' 컬럼이 없습니다.")
+    st.stop()
+
 sigungu_list = sorted(filtered_df_region["시군구"].dropna().unique())
 selected_sigungu = st.selectbox("시군구 선택", sigungu_list)
 
 # 선택된 지역의 센터 필터링
 filtered_df = filtered_df_region[filtered_df_region["시군구"] == selected_sigungu]
 
-# -------------------------------
-# 지도 시각화
-# -------------------------------
-# 위도/경도 컬럼 이름 확인 (보통 '위도', '경도' 또는 'lat', 'lon' 등)
-lat_col = None
-lon_col = None
-for c in df.columns:
+# 위도/경도 컬럼 이름 탐색
+lat_col, lon_col = None, None
+for c in filtered_df.columns:
     if "위도" in c:
         lat_col = c
     if "경도" in c:
         lon_col = c
 
 if lat_col and lon_col:
-    fig = px.scatter_mapbox(
-        filtered_df,
-        lat=lat_col,
-        lon=lon_col,
-        hover_name="시설명",
-        hover_data={"주소": True, lat_col: False, lon_col: False},
-        color_discrete_sequence=["#FF6699"],
-        zoom=10,
-        height=600
-    )
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        margin={"r":0,"t":0,"l":0,"b":0}
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    try:
+        fig = px.scatter_mapbox(
+            filtered_df,
+            lat=lat_col,
+            lon=lon_col,
+            hover_name=filtered_df.columns[0] if "시설명" not in filtered_df.columns else "시설명",
+            hover_data={"주소": True, lat_col: False, lon_col: False} if "주소" in filtered_df.columns else None,
+            color_discrete_sequence=["#FF6699"],
+            zoom=10,
+            height=600
+        )
+        fig.update_layout(
+            mapbox_style="open-street-map",
+            margin={"r":0, "t":0, "l":0, "b":0}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"지도를 그리는 중 오류가 발생했습니다: {e}")
 else:
     st.error("❌ 위도/경도 정보가 없는 데이터입니다. CSV에 위도, 경도 컬럼이 있는지 확인해주세요!")
