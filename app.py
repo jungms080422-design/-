@@ -934,3 +934,55 @@ def show_counseling_centers():
     실제로 도움이 필요하시면 반드시 전문가와 상담하세요.
     </p>
     """, unsafe_allow_html=True)
+
+df = pd.read_csv("https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv", encoding="cp949")
+# 컬럼 이름 정리 (혹시 공백 있으면 제거)
+df.columns = df.columns.str.strip()
+
+# -------------------------------
+# UI 구성
+# -------------------------------
+st.title("🧭 여성가족부 청소년상담복지센터 현황 지도")
+
+# 지역(광역시도) 선택
+region_list = sorted(df["지역"].dropna().unique())
+selected_region = st.selectbox("광역시도 선택", region_list)
+
+# 시군구 선택 (해당 광역시도만 필터링)
+filtered_df_region = df[df["지역"] == selected_region]
+sigungu_list = sorted(filtered_df_region["시군구"].dropna().unique())
+selected_sigungu = st.selectbox("시군구 선택", sigungu_list)
+
+# 선택된 지역의 센터 필터링
+filtered_df = filtered_df_region[filtered_df_region["시군구"] == selected_sigungu]
+
+# -------------------------------
+# 지도 시각화
+# -------------------------------
+# 위도/경도 컬럼 이름 확인 (보통 '위도', '경도' 또는 'lat', 'lon' 등)
+lat_col = None
+lon_col = None
+for c in df.columns:
+    if "위도" in c:
+        lat_col = c
+    if "경도" in c:
+        lon_col = c
+
+if lat_col and lon_col:
+    fig = px.scatter_mapbox(
+        filtered_df,
+        lat=lat_col,
+        lon=lon_col,
+        hover_name="시설명",
+        hover_data={"주소": True, lat_col: False, lon_col: False},
+        color_discrete_sequence=["#FF6699"],
+        zoom=10,
+        height=600
+    )
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.error("❌ 위도/경도 정보가 없는 데이터입니다. CSV에 위도, 경도 컬럼이 있는지 확인해주세요!")
