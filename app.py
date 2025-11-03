@@ -943,9 +943,7 @@ def show_counseling_centers():
 def load_center_df():
     try:
         df = pd.read_csv(
-            "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv",
-            encoding="cp949"
-        )
+            "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv")
         df.columns = df.columns.str.strip()
         return df
     except Exception as e:
