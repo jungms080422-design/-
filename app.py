@@ -855,3 +855,19 @@ with st.expander("ℹ️ 데이터 출처"):
     - 본 데이터는 **여성가족부 청소년상담복지센터 현황** 자료를 기반으로 합니다.  
     - 출처: 여성가족부 청소년상담복지개발원  
     """)
+
+
+# 인코딩 자동 탐지 + fallback
+try:
+    df = pd.read_csv(
+        "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv",
+        encoding="utf-8-sig"
+    )
+except UnicodeDecodeError:
+    df = pd.read_csv(
+        "https://raw.githubusercontent.com/jungms080422-design/-/main/adolscenve.csv",
+        encoding="cp949",
+        errors="ignore"
+    )
+
+st.write(df.head())
