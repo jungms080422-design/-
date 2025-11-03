@@ -23,43 +23,51 @@ def load_center_df():
         st.error(f"센터 현황 CSV를 불러오지 못했습니다: {e}")
         return pd.DataFrame()
 
+def _pick_col(df, candidates):
+    """후보 리스트 중 실제 존재하는 첫 컬럼명을 반환(없으면 None)"""
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
 def render_center_map():
     """엔딩 화면 하단에 표시할 상담센터 지도"""
     df = load_center_df()
-
     st.markdown("## 🧭 여성가족부 청소년상담복지센터 현황 지도")
 
     if df.empty:
         st.info("센터 현황 데이터를 불러오지 못해 지도를 생략합니다.")
         return
 
-    # 지역(광역시도) 선택
-    if "지역" not in df.columns:
-        st.warning("CSV에 '지역' 컬럼이 없습니다.")
+    # 컬럼명 정규화
+    df.columns = df.columns.str.strip()
+
+    # 지역/시군구 컬럼 자동 탐색
+    region_col = _pick_col(df, ["지역", "광역시도", "시도"])
+    sigungu_col = _pick_col(df, ["시군구명", "시군구", "군구"])
+
+    if region_col is None:
+        st.warning("CSV에 지역(예: '지역', '광역시도', '시도') 컬럼이 없습니다.")
+        return
+    if sigungu_col is None:
+        st.warning("CSV에 시군구(예: '시군구명', '시군구') 컬럼이 없습니다.")
         return
 
-    region_list = sorted(df["지역"].dropna().unique())
+    # 지역 선택
+    region_list = sorted(df[region_col].dropna().unique())
     selected_region = st.selectbox("광역시도 선택", region_list, key="map_region")
 
     # 시군구 선택
-    filtered_df_region = df[df["지역"] == selected_region]
-    if "시군구명" not in filtered_df_region.columns:
-        st.warning("CSV에 '시군구' 컬럼이 없습니다.")
-        return
-
-    sigungu_list = sorted(filtered_df_region["시군구명"].dropna().unique())
+    filtered_df_region = df[df[region_col] == selected_region]
+    sigungu_list = sorted(filtered_df_region[sigungu_col].dropna().unique())
     selected_sigungu = st.selectbox("시군구 선택", sigungu_list, key="map_sigungu")
 
-    # 선택된 지역의 센터 필터링
-    filtered_df = filtered_df_region[filtered_df_region["시군구"] == selected_sigungu]
+    # 선택된 지역의 센터 필터링 (여기서도 같은 컬럼명을 사용!)
+    filtered_df = filtered_df_region[filtered_df_region[sigungu_col] == selected_sigungu]
 
-    # 위도/경도 컬럼 탐색
-    lat_col, lon_col = None, None
-    for c in filtered_df.columns:
-        if "위도" in c:
-            lat_col = c
-        if "경도" in c:
-            lon_col = c
+    # 위도/경도 컬럼 탐색(부분 일치 허용)
+    lat_col = next((c for c in filtered_df.columns if "위도" in c), None)
+    lon_col = next((c for c in filtered_df.columns if "경도" in c), None)
 
     if lat_col and lon_col:
         try:
@@ -81,7 +89,8 @@ def render_center_map():
         except Exception as e:
             st.error(f"지도를 그리는 중 오류가 발생했습니다: {e}")
     else:
-        st.error("❌ 위도/경도 정보가 없습니다. CSV에 '위도', '경도' 컬럼이 있는지 확인해주세요!")
+        st.error("❌ 위도/경도 정보가 없습니다. CSV에 '위도', '경도'(또는 유사명) 컬럼이 있는지 확인해주세요!")
+
 
 
 # -------------------- 초기 세션 --------------------
